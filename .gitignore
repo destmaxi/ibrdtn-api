@@ -5,3 +5,5 @@
 bin/
 *.log
 /target/
+.out
+.idea
