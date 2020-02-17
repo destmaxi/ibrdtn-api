@@ -32,6 +32,7 @@ public class CommunicatorInput implements Runnable {
 	private FifoBundleQueue toFetchBundles = new FifoBundleQueue();
 	private Dispatcher dispatcher = null;
 	private StringBuilder buffer = null;
+	private List<String> blocks = new ArrayList<>();
 	private List<String> neighborList = new ArrayList<String>();
 
 
@@ -69,8 +70,10 @@ public class CommunicatorInput implements Runnable {
 				//Otherwise, if bundle is loaded (and info are sent), bufferize them:
 				}  else if(this.dispatcher.getState() == State.BDL_LOADED) {
 					this.buffer.append(str + "\n");
-					if(str.startsWith("Blocks: "))
+					if(str.startsWith("Blocks: ")) {
+					    storeBlocks(Integer.parseInt(str.split(" ")[1]));
 						this.dispatcher.setState(State.INFO_BUFFERED);
+					}
 				//Otherwise, if payload is sent, bufferize it:
 				}  else if(this.dispatcher.getState() == State.PLD_BUFFERING) {
 					//If the line is empty, count it
@@ -101,6 +104,29 @@ public class CommunicatorInput implements Runnable {
 		}
 	}
 
+	private void storeBlocks(int numberOfBlocks) throws IOException {
+		this.blocks.clear();
+		String str = "";
+		StringBuilder block = new StringBuilder();
+		str = this.br.readLine();
+		CommunicatorInput.log.finest("BLOCK: " + str);
+		int count = 0;
+		do {
+			str = this.br.readLine();
+
+			if (str.isEmpty()) continue;
+
+            block.append(str).append("\n");
+
+			CommunicatorInput.log.finest("BLOCK: " + block.toString());
+			if (str.startsWith("Encoding: ")) {
+				this.blocks.add(block.toString());
+				block = new StringBuilder();
+				count++;
+			}
+		} while (count < numberOfBlocks);
+	}
+
 	private void log(String str) {
 		try {
 			synchronized(Api.lockFile) {
@@ -113,6 +139,10 @@ public class CommunicatorInput implements Runnable {
 			CommunicatorInput.log.info("Could not open the file '" + Api.LOG_FILE_PATH + "' to write it. Log will be display at finest level.");
 			CommunicatorInput.log.finest(str);
 		}
+	}
+
+	public List<String> getBlocks() {
+		return this.blocks;
 	}
 
 	public String getBuffer() {

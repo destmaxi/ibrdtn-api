@@ -1,5 +1,6 @@
 package org.ibrdtnapi.dispatcher;
 
+import java.util.List;
 import java.util.logging.Logger;
 
 import org.ibrdtnapi.Api;
@@ -70,9 +71,15 @@ public class Fetcher implements Runnable {
 				else if(s.startsWith("Blocks:"))
 					numberOfBlocks = Integer.parseInt(s.split(" ")[1]);
 			}
-			for(int payloadBlock = 0; payloadBlock < numberOfBlocks; payloadBlock++) {
+
+			List<String> blocks = this.communicatorInput.getBlocks();
+			for (int blockNumber =  0; blockNumber < numberOfBlocks; blockNumber++) {
+				String block = blocks.get(blockNumber);
+				Fetcher.log.finest("BLOCK: " + block);
+				if (!isPayloadBlock(block)) continue;
+
 				//Request to load the payload (base64 encoded)
-				this.communicatorOutput.query("payload " + payloadBlock +" get 0 0");
+				this.communicatorOutput.query("payload " + blockNumber +" get 0 0");
 				while(this.dispatcher.getState() != State.PLD_BUFFERED) { Api.sleepWait(); };
 				//Set the encoded payload to the bundle
 				buffer = new String(this.communicatorInput.getBuffer());
@@ -91,11 +98,40 @@ public class Fetcher implements Runnable {
 				this.dispatcher.setState(State.PLD_CONSUMED);
 			}
 
+			/*for(int payloadBlock = 0; payloadBlock < numberOfBlocks; payloadBlock++) {
+				//Request to load the payload (base64 encoded)
+				this.communicatorOutput.query("payload " + payloadBlock +" get 0 0");
+				while(this.dispatcher.getState() != State.PLD_BUFFERED) { Api.sleepWait(); };
+				//Set the encoded payload to the bundle
+				buffer = new String(this.communicatorInput.getBuffer());
+				String[] payloadBuffer = buffer.split("\n");
+
+				StringBuilder encoded =  new StringBuilder();
+				final int payloadStartingLine = 2;
+				for (int line = payloadStartingLine; line < payloadBuffer.length; line++) {
+					String s = payloadBuffer[line].trim();
+					if (!s.isEmpty()) {
+						encoded.append(s);
+					}
+				}
+
+				this.bundle.addEncoded(encoded.toString());
+				this.dispatcher.setState(State.PLD_CONSUMED);
+			}*/
+
 			//Set the bundle to the dispatcher, so the dispatcher can add it in the Fifo for the app
 			this.dispatcher.setFetchingBundle(this.bundle);
 			this.dispatcher.setState(State.BDL_READY);
 			//Request to mark the bundle as delivered so the CommunicatorInput will set the dispatcher's state to BDL_READY
 			this.communicatorOutput.query("bundle delivered " + this.bundle.getTimestamp() + " " + this.bundle.getSequencenumber() + " " + this.bundle.getSource());
 		}
+	}
+
+	private boolean isPayloadBlock(String block) {
+		String[] line = block.split("\n");
+		for (String s: line) {
+			if (s.startsWith("Block: 1\n")) return true;
+		}
+		return false;
 	}
 }

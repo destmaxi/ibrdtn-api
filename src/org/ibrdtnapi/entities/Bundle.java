@@ -31,7 +31,7 @@ public class Bundle {
 	}
 
 	public Bundle(long timestamp, int blockNumber, String source, String destination) {
-		this.timestamp = (timestamp == 0) ? System.currentTimeMillis() : timestamp;
+		this.timestamp = timestamp;
 		this.sequenceNumber = blockNumber;
 		this.source = source;
 		this.destination = destination;
